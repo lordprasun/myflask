@@ -10,15 +10,10 @@ def hello_world():
 def intro(name = 'z',roll=0,marks=1.1):
   return "Hello My name is {} roll number {} and i got {}".format(name,roll,marks)
 
-@app.route("/result/<name>/<int:roll>/<float:marks>/")
-def results(name = 'z',roll=0,marks=1.1):
-    dir = {
-            "name" : name,#req['name'],
-            "roll" : roll,#req['roll'],
-            "marks": marks #req['marks']
-     }
-    print ("*"*50,dir)
-    return render_template('result.html',result= dir)
+@app.route("/result",methods =['POST','GET'])
+def results():
+    result = request.form
+    return render_template('result.html', result=result)
 
 @app.route("/login",methods =['POST','GET'])
 def login():
@@ -26,8 +21,7 @@ def login():
         name = request.form['name']
         roll = request.form['roll']
         marks = request.form['marks']
-        #return redirect(url_for('intro', name=name,roll=roll,marks = marks ))
-        return redirect(url_for('results', name=name,roll=roll,marks = marks ))
+        return redirect(url_for('intro', name=name,roll=roll,marks = marks ))
     else:
         return "You Called using {}".format(request.method)
 
