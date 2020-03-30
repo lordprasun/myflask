@@ -1,0 +1,22 @@
+{
+  "name": "@prasunchakrab0rty/simplelogin",
+  "version": "1.0.0",
+  "description": "A Simple Login Boilerplate Module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prasunchakrab0rty/NPM-Simple-Login.git"
+  },
+  "keywords": [
+    "Login"
+  ],
+  "author": "Prasun Chakraborty (https://prasunchakraborty.com/)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/prasunchakrab0rty/NPM-Simple-Login/issues"
+  },
+  "homepage": "https://github.com/prasunchakrab0rty/NPM-Simple-Login#readme"
+}
