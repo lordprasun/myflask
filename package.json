@@ -1,6 +1,6 @@
 {
   "name": "@prasunchakrab0rty/simplelogin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Simple Login Boilerplate Module",
   "main": "index.js",
   "scripts": {
@@ -15,6 +15,17 @@
   ],
   "author": "Prasun Chakraborty (https://prasunchakraborty.com/)",
   "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^8.5.1",
+    "mongoose": "^5.9.7",
+    "mysql": "^2.18.1",
+    "util": "^0.12.2"
+  },
+  "devDependencies": {
+    "@types/node": "^13.11.0",
+    "typescript": "^3.8.3"
+  }
   "bugs": {
     "url": "https://github.com/prasunchakrab0rty/NPM-Simple-Login/issues"
   },
