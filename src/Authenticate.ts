@@ -3,9 +3,9 @@ const util = require('util');
 const bcrypt = require('bcryptjs');
 var jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const token = require('./models');
+const tokens = require('./models');
 
-import { imysqldb, ijwt, imongodb, iuser_table } from './iCollections'
+import { imysqldb, ijwt, imongodb, resetPassword } from './iCollections'
 
 /**
     * @returns an authentication object to login, get new token
@@ -19,20 +19,23 @@ export class Authenticate {
     mysqlconnection: any;
     query: any;
     auth_table: string;
-    // user_table: string;
+    user_table: string;
     jwt_secret: string;
     jwt_refresh_secret: string;
     jwt_token_life: number;
     jwt_refresh_token_life: number;
     user_id: number;
-    constructor(imysql: imysqldb, imongo: imongodb, ijwts: ijwt, auth_table?: string) {
-        // console.log(imongo)
-        this.auth_table = auth_table ? auth_table : 'user';
-        // this.user_table = db.user_table ? db.user_table : 'user';
+    mongoUrl: string;
+    mysqlObject: imysqldb;
+    constructor(imysql: imysqldb, imongo: imongodb, ijwts: ijwt, auth_table?: string, user_table?: string) {
+        this.auth_table = auth_table ? auth_table : 'user_account';
+        this.user_table = user_table ? user_table : 'user';
         this.jwt_secret = ijwts.secret;
+        this.mysqlObject = imysql;
         this.jwt_token_life = ijwts.token_life;
         this.jwt_refresh_secret = ijwts.refresh_secret;
         this.jwt_refresh_token_life = ijwts.refresh_token_life;
+        this.mongoUrl = imongo.url;
         this.mysqlconnection = mysql.createConnection({
             host: imysql.host,
             port: imysql.port,
@@ -42,8 +45,11 @@ export class Authenticate {
         });
         this.user_id = 0;
         this.query = util.promisify(this.mysqlconnection.query).bind(this.mysqlconnection);
-        mongoose.connect(imongo.url, { useNewUrlParser: true, useUnifiedTopology: true })
         mongoose.Promise = global.Promise;
+    }
+    createmysqlconnection() {
+        this.mysqlconnection = mysql.createConnection(this.mysqlObject);
+        this.mysqlconnection.connect();
     }
     /**
     * @returns Auth token and User Details
@@ -52,20 +58,30 @@ export class Authenticate {
     * @param password    
     */
     async login(email: string, password: string) {
-        this.mysqlconnection.connect();
+        this.createmysqlconnection();
+        mongoose.connect(this.mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
         try {
             let useroObj: any = {}
             let authQuery = `SELECT * FROM ${this.auth_table} WHERE email = "${email}"`
             const authRow = await this.query(authQuery);
             if (authRow.length < 1) {
                 this.mysqlconnection.end();
+                mongoose.connection.close();
                 return { status: false, message: "Email Not Found", data: {} }
             }
             if (bcrypt.compareSync(password, authRow[0].password)) {
                 this.user_id = authRow[0].user_id;
-                // const user = await this.query(`SELECT * FROM ${this.user_table} WHERE id = "${authRow[0].user_id}"`)
-                // useroObj.user_details = Object.assign({}, user[0]);;
-                useroObj.user_details = Object.assign({}, authRow[0]);
+                const user = await this.query(`SELECT * FROM ${this.user_table} WHERE id = "${authRow[0].user_id}"`)
+                useroObj.user_details = Object.assign({}, user[0]);;
+                // const userDetails = {
+                //     id: authRow[0].id,
+                //     first_name: authRow[0].first_name,
+                //     last_name: authRow[0].last_name,
+                //     phone: authRow[0].phone,
+                //     company_id: authRow[0].company_id,
+                //     role_id: authRow[0].role_id
+                // }
+                // useroObj.user_details = userDetails;
                 if (this.jwt_secret && this.jwt_token_life) {
                     useroObj.token = jwt.sign({ user_id: authRow[0].user_id }, this.jwt_secret, {
                         expiresIn: this.jwt_token_life
@@ -98,13 +114,16 @@ export class Authenticate {
                     useroObj.new_user = true
                 }
                 this.mysqlconnection.end();
+                mongoose.connection.close()
                 return { status: true, message: "User Logged In Successfully", data: useroObj }
             } else {
                 this.mysqlconnection.end();
+                mongoose.connection.close()
                 return { status: false, message: "Password Don't Match", data: {} }
             }
         } catch (err) {
             this.mysqlconnection.end();
+            mongoose.connection.close()
             return { status: false, message: JSON.stringify(err), data: {} }
         }
     }
@@ -122,6 +141,35 @@ export class Authenticate {
             next();
         } catch (e) {
             return res.status(200).send({ status: false, response_code: 0, message: "Failed to authenticate token.", data: e });
+        }
+    }
+
+    async reset_password(user_id: number, password: resetPassword) {
+        this.createmysqlconnection();
+        let authQuery = `SELECT password FROM ${this.auth_table} WHERE user_id=${user_id}`
+        const authRow = await this.query(authQuery);
+        if (bcrypt.compareSync(password.old_password, authRow[0].password)) {
+            let hash = bcrypt.hashSync(password.new_password, 2);
+            authQuery = `UPDATE ${this.auth_table} SET password='${hash}',password_last_updated='${new Date().toUTCString()}' WHERE user_id=${user_id}`
+            console.log(authQuery)
+            const authRow = await this.query(authQuery);
+            console.log(authRow[0])
+        }
+        this.mysqlconnection.end();
+        return { status: true, message: "Success", data: {} }
+    }
+
+    async forget_password(email: string) {
+        try {
+            this.createmysqlconnection();
+            let encryptedPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), 2);
+            let authQuery = `UPDATE ${this.auth_table} SET password = ${encryptedPassword}, password_last_updated= null WHERE email=${email}`
+            let authRow = await this.query(authQuery);
+            authQuery = `SELECT u.* FROM ${this.user_table} u JOIN ${this.auth_table} ua ON u.id=ua.user_id WHERE ua.email=${email}`
+            authRow = await this.query(authQuery);
+            return { status: true, message: "Password Update Successfully", data: { user_details: authRow[0], new_password: encryptedPassword } }
+        } catch (err) {
+            return { status: false, message: JSON.stringify(err), data: {} }
         }
     }
 

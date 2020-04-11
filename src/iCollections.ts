@@ -16,7 +16,10 @@ export interface imysqldb {
 export interface imongodb {
     url: 'mongodb://wacuser:SQLdmin123!@10.0.8.114:27017/wac'
 }
-
+export interface resetPassword {
+    old_password: string,
+    new_password: string
+}
 export interface credentials {
     email: string;
     password: string
